@@ -1,0 +1,146 @@
+const express = require('express');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const cors = require('cors');
+const mysql = require('mysql2');
+
+// Initialize express app
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Connect to MySQL
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  password: 'deena@dev96', 
+  database: 'user_management',
+});
+
+db.connect((err) => {
+  if (err) throw err;
+  console.log('Connected to MySQL');
+});
+
+// JWT secret key
+const secretKey = 'secret';
+
+// Middleware to verify token and block unauthorized users
+const verifyToken = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(403).json({ message: 'No token provided' });
+
+  jwt.verify(token, secretKey, (err, decoded) => {
+    if (err) return res.status(401).json({ message: 'Unauthorized' });
+
+    db.query('SELECT status FROM users WHERE id = ?', [decoded.id], (err, results) => {
+      if (err) return res.status(500).json(err);
+      if (!results.length || results[0].status === 'blocked') {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+      req.userId = decoded.id;
+      next();
+    });
+  });
+};
+
+// Registration route
+app.post('/api/register', (req, res) => {
+  const { name, email, password } = req.body;
+  
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'Please fill all fields' });
+  }
+
+  // Check if the user already exists
+  db.query('SELECT * FROM users WHERE email = ?', [email], async (err, results) => {
+    if (err) return res.status(500).json({ message: 'Internal server error' });
+
+    if (results.length) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    // Hash password and insert new user
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = { name, email, password: hashedPassword, status: 'active' };
+
+    db.query('INSERT INTO users SET ?', newUser, (err, result) => {
+      if (err) return res.status(500).json({ message: 'Registration failed' });
+      res.status(201).json({ message: 'User registered successfully' });
+    });
+  });
+});
+
+// Login route
+app.post('/api/login', (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Please fill all fields' });
+  }
+
+  db.query('SELECT * FROM users WHERE email = ?', [email], async (err, results) => {
+    if (err) return res.status(500).json({ message: 'Internal server error' });
+
+    if (!results.length) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const user = results[0];
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    if (user.status === 'blocked') {
+      return res.status(403).json({ message: 'Your account is blocked' });
+    }
+
+    const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: '1h' });
+    res.json({ token });
+  });
+});
+
+// Get users route
+app.get('/api/users', verifyToken, (req, res) => {
+  db.query('SELECT id, name, email, registration_time, last_login_time, status FROM users', (err, results) => {
+    if (err) return res.status(500).json(err);
+    res.json(results);
+  });
+});
+
+// Block users route
+app.post('/api/users/block', verifyToken, (req, res) => {
+  const { userIds } = req.body;
+  db.query('UPDATE users SET status = "blocked" WHERE id IN (?)', [userIds], (err, result) => {
+    if (err) return res.status(500).json(err);
+    res.json({ message: 'Users blocked successfully' });
+  });
+});
+
+// Unblock users route
+app.post('/api/users/unblock', verifyToken, (req, res) => {
+  const { userIds } = req.body;
+  db.query('UPDATE users SET status = "active" WHERE id IN (?)', [userIds], (err, result) => {
+    if (err) return res.status(500).json(err);
+    res.json({ message: 'Users unblocked successfully' });
+  });
+});
+
+// Delete users route
+app.post('/api/users/delete', verifyToken, (req, res) => {
+  const { userIds } = req.body;
+  if (!userIds || !userIds.length) {
+    return res.status(400).json({ message: 'No users selected for deletion' });
+  }
+  db.query('DELETE FROM users WHERE id IN (?)', [userIds], (err, result) => {
+    if (err) return res.status(500).json(err);
+    res.status(200).json({ message: 'Users deleted successfully' });
+  });
+});
+
+// Start the server
+app.listen(5000, () => {
+  console.log('Server running on http://localhost:5000');
+});
