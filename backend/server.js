@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const mysql = require('mysql2');
+const WebSocket = require('ws');
 
 // Initialize express app
 const app = express();
@@ -44,31 +45,19 @@ const verifyToken = (req, res, next) => {
   });
 };
 
-// Registration route
-app.post('/api/register', (req, res) => {
+// Registration Route
+app.post('/api/register', async (req, res) => {
   const { name, email, password } = req.body;
-  
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: 'Please fill all fields' });
-  }
+  const hashedPassword = await bcrypt.hash(password, 10);
 
-  // Check if the user already exists
-  db.query('SELECT * FROM users WHERE email = ?', [email], async (err, results) => {
-    if (err) return res.status(500).json({ message: 'Internal server error' });
-
-    if (results.length) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    // Hash password and insert new user
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = { name, email, password: hashedPassword, status: 'active' };
-
-    db.query('INSERT INTO users SET ?', newUser, (err, result) => {
-      if (err) return res.status(500).json({ message: 'Registration failed' });
+  db.query(
+    'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
+    [name, email, hashedPassword],
+    (err, result) => {
+      if (err) return res.status(500).json(err);
       res.status(201).json({ message: 'User registered successfully' });
-    });
-  });
+    }
+  );
 });
 
 // Login route
@@ -110,11 +99,36 @@ app.get('/api/users', verifyToken, (req, res) => {
   });
 });
 
-// Block users route
+const wss = new WebSocket.Server({ port: 8080 });
+
+wss.on('connection', (ws) => {
+  console.log('User connected to WebSocket');
+
+  ws.on('message', (message) => {
+    console.log(`Received message => ${message}`);
+  });
+
+  ws.on('close', () => {
+    console.log('User disconnected from WebSocket');
+  });
+});
+
+function notifyUserBlocked(userId) {
+  // Broadcast to all connected users
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({ type: 'block', userId }));
+    }
+  });
+}
+
+
+// When you block a user
 app.post('/api/users/block', verifyToken, (req, res) => {
   const { userIds } = req.body;
   db.query('UPDATE users SET status = "blocked" WHERE id IN (?)', [userIds], (err, result) => {
     if (err) return res.status(500).json(err);
+    notifyUserBlocked(userIds);
     res.json({ message: 'Users blocked successfully' });
   });
 });
