@@ -45,13 +45,13 @@ const verifyToken = (req, res, next) => {
   });
 };
 
-// Registration Route
+//registration route
 app.post('/api/register', async (req, res) => {
   const { name, email, password } = req.body;
   const hashedPassword = await bcrypt.hash(password, 10);
 
   db.query(
-    'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
+    'INSERT INTO users (name, email, password, registration_time) VALUES (?, ?, ?, NOW())',
     [name, email, hashedPassword],
     (err, result) => {
       if (err) return res.status(500).json(err);
@@ -59,6 +59,7 @@ app.post('/api/register', async (req, res) => {
     }
   );
 });
+
 
 // Login route
 app.post('/api/login', (req, res) => {
@@ -86,10 +87,16 @@ app.post('/api/login', (req, res) => {
       return res.status(403).json({ message: 'Your account is blocked' });
     }
 
+    // Update last_login_time
+    db.query('UPDATE users SET last_login_time = NOW() WHERE id = ?', [user.id], (err) => {
+      if (err) console.error('Failed to update last login time:', err);
+    });
+
     const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: '1h' });
     res.json({ token });
   });
 });
+
 
 // Get users route
 app.get('/api/users', verifyToken, (req, res) => {

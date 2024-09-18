@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import Register from './components/Register';
 import AdminPanel from './components/UserManagement';
@@ -9,7 +9,8 @@ function App() {
     <Router>
       <div className="App">
         <Routes>
-          <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Navigate to="/login" />} />
+        <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/admin" element={<PrivateRoute component={AdminPanel} />} />
         </Routes>
