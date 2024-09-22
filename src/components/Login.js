@@ -11,7 +11,7 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://localhost:5000/api/login', { email, password });
+      const response = await axios.post('https://user-management-backend-qp8s.onrender.com/api/login', { email, password });
       localStorage.setItem('token', response.data.token);
       navigate('/admin'); // Redirect to admin panel
     } catch (error) {

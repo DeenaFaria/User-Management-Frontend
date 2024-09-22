@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an Axios instance
 const api = axios.create({
-  baseURL: 'http://localhost:5000', // Your backend API base URL
+  baseURL: 'https://user-management-backend-qp8s.onrender.com', // Your backend API base URL
 });
 
 // Axios interceptor to handle blocked or unauthorized users

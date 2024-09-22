@@ -36,17 +36,18 @@ const AdminPanel = () => {
 
   // Fetch users when component mounts
   useEffect(() => {
-    axios
-      .get('http://localhost:5000/api/users', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+    axios.get('https://user-management-backend-qp8s.onrender.com/api/users', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    
       .then((response) => setUsers(response.data))
       .catch((error) => console.log(error));
   }, [token]);
 
   // WebSocket logic for detecting if the current user is blocked
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8080');
+    const ws = new WebSocket('wss://user-management-backend-qp8s.onrender.com');
+
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -81,10 +82,10 @@ const AdminPanel = () => {
 
   // Block selected users
   const blockUsers = () => {
-    axios
-      .post('http://localhost:5000/api/users/block', { userIds: selectedUserIds }, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+    axios.post('https://user-management-backend-qp8s.onrender.com/api/users/block', { userIds: selectedUserIds }, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    
       .then(() => {
         setUsers((prev) =>
           prev.map((user) =>
@@ -98,10 +99,10 @@ const AdminPanel = () => {
 
   // Unblock selected users
   const unblockUsers = () => {
-    axios
-      .post('http://localhost:5000/api/users/unblock', { userIds: selectedUserIds }, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+    axios.post('https://user-management-backend-qp8s.onrender.com/api/users/unblock', { userIds: selectedUserIds }, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    
       .then(() => {
         setUsers((prev) =>
           prev.map((user) =>
@@ -115,10 +116,10 @@ const AdminPanel = () => {
 
   // Delete selected users
   const deleteUsers = () => {
-    axios
-      .post('http://localhost:5000/api/users/delete', { userIds: selectedUserIds }, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+    axios.post('https://user-management-backend-qp8s.onrender.com/api/users/delete', { userIds: selectedUserIds }, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    
       .then(() => {
         // Remove deleted users from the UI
         setUsers((prev) => prev.filter((user) => !selectedUserIds.includes(user.id)));
